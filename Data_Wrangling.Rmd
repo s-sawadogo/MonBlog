@@ -1,0 +1,306 @@
+---
+title: "Data Wrangling"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+#  Let's import the necessary libraries.
+
+```{r echo=FALSE}
+#install.packages("tidyverse")
+library("tidyverse")
+```
+
+# *1) Let's import the datasets and inspect them*
+
+```{r}
+ideal1<- read.csv("https://raw.githubusercontent.com/ThumbiMwangi/R_sources/master/ideal1.csv")
+```
+
+```{r}
+ideal2<- read.csv("https://raw.githubusercontent.com/ThumbiMwangi/R_sources/master/ideal2.csv")
+```
+
+
+
+```{r}
+#getwd()
+```
+
+
+```{r}
+#write.csv(ideal1, "ideal1.csv")
+```
+
+
+```{r}
+#write.csv(ideal2, "ideal2.csv")
+```
+
+
+```{r}
+ideal1 %>% dim()
+```
+
+
+```{r}
+ideal2 %>% dim()
+```
+```{r}
+ideal1 %>% colnames()
+```
+```{r}
+ideal2 %>% colnames()
+```
+
+
+## Ideal1 has 30 lines and 8 columns whereas ideal2 has 270 lines and 9 columns.
+
+
+# *2) Changing the CADOB column in ideal 1 into a date and the VisitDate column into ideal 2 into a date.*
+
+```{r}
+ideal1$CADOB %>% typeof()
+```
+
+```{r}
+ideal2$VisitDate %>% typeof()
+```
+
+
+```{r}
+ideal1$CADOB<- as.Date(ideal1$CADOB)
+```
+
+
+```{r}
+ideal2$VisitDate <- as.Date(ideal2$VisitDate)
+```
+
+```{r}
+ideal1$CADOB %>% typeof()
+```
+
+
+```{r}
+ideal2$VisitDate %>% typeof()
+```
+## The missing values and duplicates in each dataset
+
+
+```{r}
+ideal1 %>% is.na() %>% colSums()
+```
+### ***The ReasonsLoss has 21 missing values***
+
+```{r}
+ideal2 %>% is.na() %>% colSums()
+```
+
+```{r}
+ideal1 %>% duplicated() %>% sum()
+```
+
+```{r}
+ideal2 %>% duplicated() %>% sum()
+```
+
+
+# *3) Recode the CalfSex column into "1"="Male", "2"="Female" and the ReasonsLoss column into: 6= «owner declined»,  7= «Death», 12= «Relocation», 18= «Given out» as well.*
+
+
+```{r}
+ideal1 <-ideal1 %>% mutate( CalfSex1=
+  case_when(
+   CalfSex=="1" ~ "Male", 
+   CalfSex=="2" ~ "Female"
+  )
+)
+```
+
+```{r}
+ideal1$ReasonsLoss %>% unique()
+```
+```{r}
+ideal1$ReasonsLoss %>% class()
+```
+
+
+
+```{r}
+ideal1 %>% mutate( ReasonsLoss1=
+  case_when(
+   ReasonsLoss==6 ~ "owner declined", 
+   ReasonsLoss==7 ~ "Death",
+   ReasonsLoss==12~ "Relocation",
+   ReasonsLoss==18 ~ "Given out"
+  )
+)
+```
+
+
+# *4) Order the ideal1 dataset by the CADOB column in descending order*
+
+```{r}
+ideal1$CalfID %>% unique %>% length == dim(ideal1)[1]
+```
+
+
+
+```{r}
+ideal1<-ideal1 %>% group_by(CalfID) %>% arrange(desc(CADOB))
+```
+
+
+
+# *5) Grouping the ideal1 dataset by CalfID and creating a new column minweight as minweight=min(RecruitWeigh) and Puting the result in a new dataset named ideal1a*
+
+
+```{r}
+ideal1a<-ideal1 %>% group_by(CalfID) %>% 
+  mutate(minweight=min(RecruitWeight, na.rm = T))
+```
+
+
+
+# *6) Let's full Join the two datasets ideal1a and ideal2 by CalfID  and call it ideal3*
+
+```{r}
+ideal3 <- ideal1a %>% 
+  full_join(ideal2, by="CalfID")
+```
+
+
+```{r}
+ideal1a %>% colnames()
+```
+```{r}
+ideal2 %>% colnames()
+```
+
+```{r}
+ideal3 %>% colnames()
+```
+
+```{r}
+ideal3 %>% is.na() %>% colSums()
+```
+
+
+# 7) Let's extract visit_number from the 4th to the 5th character of visitID
+
+
+```{r}
+ideal3 <- ideal3 %>% 
+  mutate(visit_number= str_sub(VisitID,start=4,end=5))
+```
+
+
+```{r}
+ideal3 %>% head()
+```
+
+# 8) Counting the number of sublocation per visit_number in ideal3
+
+```{r}
+ideal3 %>% group_by(visit_number) %>% count(sublocation)
+```
+
+# *9) Plot the survival of calves in the first year of life*
+
+```{r}
+calves_recruited<- ideal3 %>%  group_by(sublocation) %>% summarise(freq=n())
+```
+
+
+
+```{r}
+ggplot(calves_recruited, aes(y=sublocation, x=freq))+
+  geom_col()+
+  labs(y="sublocation", x="frequency")
+```
+
+
+
+# *10) Plot the number of calves recruited in each sublocation in descending order.*
+
+```{r}
+ggplot(calves_recruited, aes(y=reorder(sublocation,freq), x=freq))+
+  geom_col()+
+  labs(y="sublocation", x="frequency")
+```
+
+# *11) Plot the number of calves recruited in each sublocation by gender in descending order.*
+
+```{r}
+calves_recruited1<- ideal3 %>%  group_by(sublocation,CalfSex1) %>% summarise(freq=n())
+```
+
+
+```{r}
+ggplot(calves_recruited1, aes(y=reorder(sublocation,freq), x=freq, fill=  CalfSex1))+
+  geom_col()+
+  labs(y="sublocation", x="frequency")
+```
+
+
+```{r}
+ideal3 %>% summary()
+```
+
+
+
+# *13) Droppind the former sex variable and renaming the new one.*
+
+
+```{r}
+ideal3 <-ideal3 %>% select(-CalfSex) %>% 
+  rename(CalfSex=CalfSex1)
+```
+
+
+
+# *14) Subset the male dataset and name it ideal3_m*
+
+```{r}
+ideal3_m <-ideal3 %>% filter(CalfSex=="Male")
+```
+
+# *15) Plot a boxplot of RecruitWeight*
+
+
+```{r}
+ggplot(ideal3_m, aes(y=RecruitWeight))+
+  geom_boxplot()
+  #+ labs(y="sublocation", x="frequency")
+```
+
+# *16) Plot a boxplot of RecruitWeight per Sex*
+
+```{r}
+ggplot(ideal3, aes(y=RecruitWeight, fill=  CalfSex))+
+  geom_boxplot()
+  #+ labs(y="sublocation", x="frequency")
+```
+
+```{r}
+ggplot(ideal3, aes(x=RecruitWeight))+
+  geom_histogram()
+  #+ labs(y="sublocation", x="frequency")
+```
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 40, fig.height = 10)
+```
+
+
+# *17)Plot the scatterplot of  RecruitWeight and Weight*
+
+```{r}
+ggplot(ideal3, aes(x=RecruitWeight, y= Weight))+
+  geom_point()
+  #+ labs(y="sublocation", x="frequency")
+```
+
